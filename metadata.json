@@ -1,0 +1,6 @@
+{
+  "name": "Aavishkar ISL Kiosk & Corpus Builder",
+  "description": "Two-way AI communication kiosk converting Indian Sign Language into voice/text and speech into visual sign animations with few-shot corpus learning.",
+  "requestFramePermissions": ["camera", "microphone"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
