@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { Landmark3D } from '../types/isl';
 import { HAND_CONNECTIONS } from '../services/handTracker';
 import { SEED_ISL_SIGNS } from '../data/seedCorpus';
+import { Sparkles, Activity, Layers, Radio } from 'lucide-react';
 
 interface SignAvatarProps {
   glossSequence: string[];
@@ -40,7 +41,7 @@ export const SignAvatar: React.FC<SignAvatarProps> = ({
       setActiveGloss(glossSequence[idx]);
       idx++;
 
-      setTimeout(playNext, 1800); // 1.8s per sign
+      setTimeout(playNext, 1800);
     };
 
     playNext();
@@ -65,35 +66,37 @@ export const SignAvatar: React.FC<SignAvatarProps> = ({
       const w = canvas.width;
       const h = canvas.height;
 
-      // Dark futuristic booth background
-      ctx.fillStyle = '#090d16';
+      // Dark futuristic booth background with deep cyber shade
+      ctx.fillStyle = '#030712';
       ctx.fillRect(0, 0, w, h);
 
-      // Draw subtle grid
-      ctx.strokeStyle = 'rgba(139, 92, 246, 0.08)';
+      // Fine cybernetic grid with soft neon cyan tint
+      ctx.strokeStyle = 'rgba(6, 182, 212, 0.08)';
       ctx.lineWidth = 1;
-      for (let x = 0; x < w; x += 30) {
+      for (let x = 0; x < w; x += 28) {
         ctx.beginPath();
         ctx.moveTo(x, 0);
         ctx.lineTo(x, h);
         ctx.stroke();
       }
-      for (let y = 0; y < h; y += 30) {
+      for (let y = 0; y < h; y += 28) {
         ctx.beginPath();
         ctx.moveTo(0, y);
         ctx.lineTo(w, y);
         ctx.stroke();
       }
 
-      // Draw Upper Body Silhouette (Head, Neck, Torso, Shoulders)
+      // Upper Body Silhouette (Head, Neck, Torso, Shoulders)
       const cx = w / 2;
       const headY = h * 0.28;
       const headR = 38;
 
-      // Shoulders & Torso
-      ctx.fillStyle = '#1e1b4b'; // Deep indigo
-      ctx.strokeStyle = '#4338ca';
-      ctx.lineWidth = 2;
+      // Holographic shoulder aura
+      ctx.fillStyle = '#0f172a';
+      ctx.strokeStyle = '#6366f1';
+      ctx.lineWidth = 2.5;
+      ctx.shadowColor = '#6366f1';
+      ctx.shadowBlur = 10;
       ctx.beginPath();
       ctx.moveTo(cx - 90, h * 0.62);
       ctx.bezierCurveTo(cx - 70, h * 0.44, cx - 30, h * 0.40, cx, h * 0.40);
@@ -104,37 +107,36 @@ export const SignAvatar: React.FC<SignAvatarProps> = ({
       ctx.fill();
       ctx.stroke();
 
-      // Head
-      ctx.fillStyle = '#312e81';
-      ctx.strokeStyle = '#6366f1';
+      // Head with cyan outline
+      ctx.fillStyle = '#1e1b4b';
+      ctx.strokeStyle = '#06b6d4';
       ctx.lineWidth = 2.5;
+      ctx.shadowColor = '#06b6d4';
+      ctx.shadowBlur = 12;
       ctx.beginPath();
       ctx.arc(cx, headY, headR, 0, Math.PI * 2);
       ctx.fill();
       ctx.stroke();
 
-      // Facial Expression Eyes & Mouth
-      ctx.fillStyle = '#c7d2fe';
-      ctx.strokeStyle = '#c7d2fe';
+      // Facial Expression Features
+      ctx.fillStyle = '#67e8f9';
+      ctx.strokeStyle = '#67e8f9';
       ctx.lineWidth = 2.5;
+      ctx.shadowBlur = 8;
 
       const eyeY = headY - 4;
       const eyeOffset = 12;
 
-      // Expression morphing
       if (expression === 'QUESTION') {
-        // One raised eyebrow, curious mouth
         ctx.beginPath();
         ctx.arc(cx - eyeOffset, eyeY, 3, 0, Math.PI * 2);
         ctx.arc(cx + eyeOffset, eyeY - 2, 3, 0, Math.PI * 2);
         ctx.fill();
 
-        // Question mouth (slight circle "O")
         ctx.beginPath();
         ctx.ellipse(cx, headY + 16, 5, 7, 0, 0, Math.PI * 2);
         ctx.stroke();
       } else if (expression === 'WELCOMING' || expression === 'THANKFUL') {
-        // Smiling eyes (curves)
         ctx.beginPath();
         ctx.arc(cx - eyeOffset, eyeY, 5, Math.PI, 0);
         ctx.stroke();
@@ -142,24 +144,20 @@ export const SignAvatar: React.FC<SignAvatarProps> = ({
         ctx.arc(cx + eyeOffset, eyeY, 5, Math.PI, 0);
         ctx.stroke();
 
-        // Gentle warm smile
         ctx.beginPath();
         ctx.arc(cx, headY + 12, 12, 0.1 * Math.PI, 0.9 * Math.PI);
         ctx.stroke();
       } else if (expression === 'URGENT') {
-        // Tense eyes
         ctx.beginPath();
         ctx.arc(cx - eyeOffset, eyeY, 4, 0, Math.PI * 2);
         ctx.arc(cx + eyeOffset, eyeY, 4, 0, Math.PI * 2);
         ctx.fill();
 
-        // Flat serious mouth
         ctx.beginPath();
         ctx.moveTo(cx - 10, headY + 16);
         ctx.lineTo(cx + 10, headY + 16);
         ctx.stroke();
       } else {
-        // Neutral friendly
         ctx.beginPath();
         ctx.arc(cx - eyeOffset, eyeY, 3, 0, Math.PI * 2);
         ctx.arc(cx + eyeOffset, eyeY, 3, 0, Math.PI * 2);
@@ -170,25 +168,23 @@ export const SignAvatar: React.FC<SignAvatarProps> = ({
         ctx.stroke();
       }
 
-      // Draw Dynamic Hand Gestures
-      // Find matching seed sign for landmarks
+      // Hand gestures
       const currentSign = SEED_ISL_SIGNS.find(s => s.id === activeGloss || s.label.toUpperCase() === activeGloss.toUpperCase());
       const keyframe = currentSign?.avatarKeyframes?.[0];
 
-      const t = (frame % 60) / 60; // 1-second pulse cycle
+      const t = (frame % 60) / 60;
       const wave = Math.sin(t * Math.PI * 2);
 
-      // Render Right Hand
+      // Right Hand
       if (keyframe?.handRight) {
-        drawAvatarHand(ctx, keyframe.handRight, w, h, wave, '#a855f7', 'Right');
+        drawAvatarHand(ctx, keyframe.handRight, w, h, wave, '#06b6d4', 'Right');
       } else {
-        // Resting / ready gesture
-        drawRestingHand(ctx, cx + 55 + wave * 3, h * 0.68 + wave * 4, '#8b5cf6');
+        drawRestingHand(ctx, cx + 55 + wave * 3, h * 0.68 + wave * 4, '#06b6d4');
       }
 
-      // Render Left Hand if two-handed sign
+      // Left Hand
       if (keyframe?.handLeft) {
-        drawAvatarHand(ctx, keyframe.handLeft, w, h, -wave, '#3b82f6', 'Left');
+        drawAvatarHand(ctx, keyframe.handLeft, w, h, -wave, '#6366f1', 'Left');
       } else {
         drawRestingHand(ctx, cx - 55 - wave * 3, h * 0.68 + wave * 4, '#6366f1');
       }
@@ -204,15 +200,29 @@ export const SignAvatar: React.FC<SignAvatarProps> = ({
   }, [activeGloss, expression]);
 
   return (
-    <div className="relative flex flex-col items-center w-full h-full bg-slate-950 rounded-2xl overflow-hidden border border-purple-900/40 shadow-2xl">
-      <div className="absolute top-3 left-4 z-10 flex items-center space-x-2">
-        <span className="flex h-2.5 w-2.5 relative">
-          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-purple-400 opacity-75"></span>
-          <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-purple-500"></span>
-        </span>
-        <span className="text-xs font-mono font-bold tracking-wider text-purple-300 uppercase">
-          AI ISL Sign Avatar • {expression}
-        </span>
+    <div className="relative flex flex-col items-center w-full h-full bg-slate-950/90 rounded-2xl overflow-hidden border border-white/10 shadow-2xl group">
+      {/* Glowing Corner Reticles */}
+      <div className="hud-corner-tl z-20 border-indigo-400 shadow-[0_0_8px_rgba(99,102,241,0.6)]" />
+      <div className="hud-corner-tr z-20 border-indigo-400 shadow-[0_0_8px_rgba(99,102,241,0.6)]" />
+      <div className="hud-corner-bl z-20 border-indigo-400 shadow-[0_0_8px_rgba(99,102,241,0.6)]" />
+      <div className="hud-corner-br z-20 border-indigo-400 shadow-[0_0_8px_rgba(99,102,241,0.6)]" />
+
+      {/* Top HUD Telemetry Banner */}
+      <div className="absolute top-3 left-4 right-4 z-20 flex items-center justify-between pointer-events-none">
+        <div className="flex items-center space-x-2 bg-slate-950/80 px-3 py-1.5 rounded-full border border-white/10 backdrop-blur-xl shadow-lg">
+          <span className="flex h-2 w-2 relative">
+            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-cyan-400 opacity-75"></span>
+            <span className="relative inline-flex rounded-full h-2 w-2 bg-cyan-500"></span>
+          </span>
+          <span className="text-[9px] font-mono font-bold tracking-widest text-cyan-300 uppercase">
+            HOLOGRAPHIC SYNTHESIS • {expression}
+          </span>
+        </div>
+
+        <div className="hidden sm:flex items-center space-x-1.5 px-2.5 py-1 rounded-full bg-slate-950/80 border border-white/10 text-[9px] font-mono text-indigo-300 backdrop-blur-xl">
+          <Activity className="w-3 h-3 text-indigo-400" />
+          <span>42 KINEMATIC NODES</span>
+        </div>
       </div>
 
       {/* Main avatar canvas */}
@@ -223,28 +233,29 @@ export const SignAvatar: React.FC<SignAvatarProps> = ({
         className="w-full h-full object-cover max-h-[380px]"
       />
 
-      {/* Active Gloss Banner */}
-      <div className="w-full bg-slate-900/90 border-t border-purple-800/40 p-3 flex items-center justify-between">
+      {/* Active Gloss Sequence Dock */}
+      <div className="w-full bg-slate-950/95 border-t border-white/10 p-3 flex items-center justify-between backdrop-blur-2xl">
         <div className="flex items-center space-x-3">
-          <div className="px-3 py-1 bg-purple-950 border border-purple-500/50 rounded-lg text-purple-200 font-bold font-mono text-sm tracking-wide shadow-inner">
-            {activeGloss ? `ISL: ${activeGloss}` : 'Awaiting Speech...'}
+          <div className="px-3.5 py-1.5 bg-gradient-to-r from-indigo-950 to-cyan-950 border border-cyan-500/50 rounded-xl text-cyan-200 font-bold font-mono text-xs tracking-wider shadow-[0_0_12px_rgba(6,182,212,0.25)] flex items-center gap-1.5">
+            <Sparkles className="w-3.5 h-3.5 text-cyan-400" />
+            <span>{activeGloss ? `SIGN: ${activeGloss}` : 'Awaiting Speech Input...'}</span>
           </div>
-          <span className="text-xs text-slate-400">
-            {glossSequence.length > 0 ? `Sign ${currentGlossIndex + 1} of ${glossSequence.length}` : 'Ready for speaker'}
+          <span className="text-[10px] text-slate-400 font-mono hidden sm:inline">
+            {glossSequence.length > 0 ? `Sign ${currentGlossIndex + 1} of ${glossSequence.length}` : 'Standby'}
           </span>
         </div>
 
         {/* Small sequence pills */}
-        <div className="flex items-center space-x-1 overflow-x-auto max-w-[200px] py-1">
+        <div className="flex items-center space-x-1.5 overflow-x-auto max-w-[200px] py-1">
           {glossSequence.map((g, i) => (
             <span
               key={i}
-              className={`text-[10px] px-2 py-0.5 rounded-full font-mono font-semibold whitespace-nowrap transition-colors ${
+              className={`text-[9px] px-2.5 py-0.5 rounded-full font-mono font-bold whitespace-nowrap transition-all duration-200 ${
                 i === currentGlossIndex
-                  ? 'bg-purple-600 text-white shadow-md shadow-purple-500/30'
+                  ? 'bg-gradient-to-r from-indigo-600 to-cyan-600 text-white shadow-[0_0_10px_rgba(6,182,212,0.4)] border border-cyan-400/50'
                   : i < currentGlossIndex
-                  ? 'bg-slate-800 text-slate-400 line-through'
-                  : 'bg-slate-900 text-slate-500 border border-slate-800'
+                  ? 'bg-white/5 text-slate-500 line-through'
+                  : 'bg-slate-900 text-slate-400 border border-white/10'
               }`}
             >
               {g}
@@ -256,7 +267,6 @@ export const SignAvatar: React.FC<SignAvatarProps> = ({
   );
 };
 
-// Helper: draw avatar hand landmarks
 function drawAvatarHand(
   ctx: CanvasRenderingContext2D,
   landmarks: Landmark3D[],
@@ -270,7 +280,7 @@ function drawAvatarHand(
   ctx.lineWidth = 3.5;
   ctx.strokeStyle = color;
   ctx.shadowColor = color;
-  ctx.shadowBlur = 10;
+  ctx.shadowBlur = 14;
 
   const points = landmarks.map(p => ({
     x: p.x * w + (handedness === 'Right' ? waveOffset * 8 : -waveOffset * 8),
@@ -278,7 +288,6 @@ function drawAvatarHand(
     z: p.z,
   }));
 
-  // Skeleton connections
   HAND_CONNECTIONS.forEach(([i, j]) => {
     if (points[i] && points[j]) {
       ctx.beginPath();
@@ -288,13 +297,12 @@ function drawAvatarHand(
     }
   });
 
-  // Joints
   points.forEach((p, idx) => {
     ctx.beginPath();
     const isTip = [4, 8, 12, 16, 20].includes(idx);
     ctx.arc(p.x, p.y, isTip ? 5 : 3, 0, Math.PI * 2);
-    ctx.fillStyle = isTip ? '#f43f5e' : '#ffffff';
-    ctx.shadowBlur = isTip ? 12 : 4;
+    ctx.fillStyle = isTip ? '#38bdf8' : '#ffffff';
+    ctx.shadowBlur = isTip ? 16 : 6;
     ctx.fill();
   });
 

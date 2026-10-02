@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Database, Plus, Trash2, Video, CheckCircle, RefreshCw, Download, Upload, Sparkles, Layers, Play, Clock, ArrowRight } from 'lucide-react';
+import { Database, Plus, Trash2, Video, CheckCircle, RefreshCw, Download, Upload, Sparkles, Layers, Play, Clock, ArrowRight, Terminal, Crosshair, Shield } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { corpusManager } from '../services/corpusMatcher';
 import { handTracker } from '../services/handTracker';
@@ -29,7 +29,6 @@ export const CorpusBuilder: React.FC = () => {
   const currentSampleFramesRef = useRef<HandFrame[]>([]);
   const isRecordingRef = useRef<boolean>(false);
 
-  // Load corpus on mount
   const refreshCorpus = () => {
     const list = corpusManager.getAllSigns();
     setSigns(list);
@@ -45,7 +44,6 @@ export const CorpusBuilder: React.FC = () => {
     refreshCorpus();
   }, []);
 
-  // Initialize camera for recording studio
   useEffect(() => {
     let stream: MediaStream | null = null;
     let animId: number;
@@ -82,7 +80,6 @@ export const CorpusBuilder: React.FC = () => {
           if (video && video.readyState >= 2) {
             detected = handTracker.detectHands(video, now);
           } else {
-            // Simulated hand if camera denied
             detected = [{
               timestamp: now,
               landmarks: generateSyntheticHand(now),
@@ -91,10 +88,9 @@ export const CorpusBuilder: React.FC = () => {
           }
 
           detected.forEach(hf => {
-            handTracker.drawLandmarks(ctx, hf.landmarks, canvas.width, canvas.height, '#10b981', hf.handedness);
+            handTracker.drawLandmarks(ctx, hf.landmarks, canvas.width, canvas.height, '#06b6d4', hf.handedness);
           });
 
-          // If actively recording a sample, capture frames
           if (isRecordingRef.current && detected.length > 0) {
             currentSampleFramesRef.current.push(detected[0]);
             setRecordedFramesCount(currentSampleFramesRef.current.length);
@@ -113,7 +109,6 @@ export const CorpusBuilder: React.FC = () => {
     };
   }, []);
 
-  // Start 3-second countdown then record a 2.5-second sample
   const triggerRecordSample = (signId: string) => {
     speechService.playFeedbackTone('start');
     setActiveRecordingSignId(signId);
@@ -140,7 +135,6 @@ export const CorpusBuilder: React.FC = () => {
     setRecordedFramesCount(0);
     speechService.playFeedbackTone('sign_detected');
 
-    // Record for 2200ms (~30 frames)
     setTimeout(() => {
       isRecordingRef.current = false;
       setIsRecordingSample(false);
@@ -153,11 +147,10 @@ export const CorpusBuilder: React.FC = () => {
           refreshCorpus();
           setSelectedSign(updated);
 
-          // If reached 3 samples, trigger celebration!
           if (updated.samples.length === 3) {
             confetti({
-              particleCount: 80,
-              spread: 60,
+              particleCount: 100,
+              spread: 70,
               origin: { y: 0.6 },
             });
           }
@@ -166,7 +159,6 @@ export const CorpusBuilder: React.FC = () => {
     }, 2200);
   };
 
-  // Create new sign entry
   const handleCreateSign = (e: React.FormEvent) => {
     e.preventDefault();
     if (!newLabel.trim()) return;
@@ -180,10 +172,10 @@ export const CorpusBuilder: React.FC = () => {
       category: newCategory,
       description: newDescription.trim() || 'Custom recorded sign for kiosk',
       instructions: ['Perform gesture in front of camera smoothly 3 times.'],
-      minExamplesRequired: 3, // As per hackathon specification
+      minExamplesRequired: 3,
       samples: [],
       isBuiltIn: false,
-      color: '#10b981',
+      color: '#06b6d4',
     };
 
     corpusManager.addOrUpdateSign(newSign);
@@ -191,10 +183,8 @@ export const CorpusBuilder: React.FC = () => {
     setSelectedSign(newSign);
     setIsAddingNew(false);
 
-    // Immediately prompt to record first sample
     triggerRecordSample(id);
 
-    // Reset form
     setNewLabel('');
     setNewMeaning('');
     setNewDescription('');
@@ -208,7 +198,6 @@ export const CorpusBuilder: React.FC = () => {
     }
   };
 
-  // Export & Import
   const handleExportCorpus = () => {
     const dataStr = 'data:text/json;charset=utf-8,' + encodeURIComponent(JSON.stringify(signs, null, 2));
     const downloadAnchor = document.createElement('a');
@@ -239,28 +228,28 @@ export const CorpusBuilder: React.FC = () => {
   };
 
   return (
-    <div className="max-w-7xl mx-auto px-4 py-6 space-y-6">
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6 space-y-6">
       {/* Top Banner explaining Low-Resource Corpus & 3-Shot Learning */}
-      <div className="bg-gradient-to-r from-emerald-950 via-slate-900 to-purple-950 p-6 rounded-2xl border border-emerald-800/50 shadow-2xl flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-        <div className="space-y-1">
-          <div className="flex items-center space-x-2">
-            <span className="px-2.5 py-0.5 rounded-full bg-emerald-900 text-emerald-300 font-mono text-xs font-bold border border-emerald-700">
+      <div className="glass-panel-elevated p-6 sm:p-8 rounded-3xl border border-white/10 shadow-2xl flex flex-col md:flex-row items-start md:items-center justify-between gap-6 transition-all duration-300">
+        <div className="space-y-2">
+          <div className="flex items-center space-x-2.5">
+            <span className="px-3 py-1 rounded-full bg-cyan-950/80 text-cyan-300 font-mono text-[10px] font-bold uppercase tracking-widest border border-cyan-500/40">
               Low-Resource Transfer Learning
             </span>
-            <span className="text-xs text-slate-400">• 3 to 20 Examples per Sign</span>
+            <span className="text-xs text-slate-400 font-mono">• 3 to 20 Exemplars per Sign</span>
           </div>
-          <h2 className="text-2xl font-black text-white tracking-wide">
+          <h2 className="text-2xl sm:text-3xl font-black text-white tracking-wide">
             Low-Resource Sign Corpus Studio
           </h2>
-          <p className="text-xs text-slate-300 max-w-2xl leading-relaxed">
-            Standard sign AI models require thousands of videos. Our system uses MediaPipe spatial-temporal landmark extraction with Dynamic Time Warping (DTW) and few-shot transfer matching. You only need <strong>3 recordings</strong> to teach the kiosk a completely new sign!
+          <p className="text-xs text-slate-300 max-w-2xl leading-relaxed font-mono">
+            Traditional vision models require thousands of training videos. Our system extracts 21 3D spatial landmarks and classifies temporal motion via Dynamic Time Warping (DTW). You only need <strong className="text-cyan-400">3 recordings</strong> to teach the kiosk a completely new sign!
           </p>
         </div>
 
         <div className="flex items-center space-x-3 shrink-0">
           <button
             onClick={() => setIsAddingNew(true)}
-            className="px-4 py-2.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white rounded-xl text-sm font-bold shadow-lg shadow-emerald-700/30 flex items-center space-x-2 transition"
+            className="px-5 py-3 bg-gradient-to-r from-cyan-600 via-indigo-600 to-purple-600 hover:from-cyan-500 hover:to-purple-500 text-white rounded-2xl text-xs font-mono font-bold tracking-wider uppercase shadow-xl shadow-cyan-500/25 flex items-center space-x-2 transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] border border-cyan-400/40"
           >
             <Plus className="w-4 h-4" />
             <span>Teach New Sign (3-Shot)</span>
@@ -268,13 +257,13 @@ export const CorpusBuilder: React.FC = () => {
 
           <button
             onClick={handleExportCorpus}
-            className="p-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white rounded-xl border border-slate-700 transition"
+            className="p-3 bg-white/5 hover:bg-white/10 text-slate-300 hover:text-white rounded-2xl border border-white/10 transition-all duration-200"
             title="Export Corpus JSON"
           >
             <Download className="w-4 h-4" />
           </button>
 
-          <label className="p-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white rounded-xl border border-slate-700 transition cursor-pointer" title="Import Corpus JSON">
+          <label className="p-3 bg-white/5 hover:bg-white/10 text-slate-300 hover:text-white rounded-2xl border border-white/10 transition-all duration-200 cursor-pointer" title="Import Corpus JSON">
             <Upload className="w-4 h-4" />
             <input type="file" accept=".json" onChange={handleImportCorpus} className="hidden" />
           </label>
@@ -284,16 +273,16 @@ export const CorpusBuilder: React.FC = () => {
       {/* Main Studio Grid: Left Library, Right Recording & Inspection Studio */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         {/* Sign Dictionary List (4 columns) */}
-        <div className="lg:col-span-4 bg-slate-900 rounded-2xl border border-slate-800 p-4 flex flex-col h-[650px] shadow-xl">
-          <div className="flex items-center justify-between pb-3 border-b border-slate-800 mb-3">
+        <div className="lg:col-span-4 glass-panel rounded-3xl border border-white/10 p-5 flex flex-col h-[650px] shadow-2xl">
+          <div className="flex items-center justify-between pb-3.5 border-b border-white/5 mb-3">
             <div className="flex items-center space-x-2">
-              <Database className="w-4 h-4 text-emerald-400" />
-              <h3 className="text-sm font-extrabold text-white">Registered Signs ({signs.length})</h3>
+              <Database className="w-4 h-4 text-cyan-400" />
+              <h3 className="text-xs font-black uppercase tracking-widest text-white">Registered Signs ({signs.length})</h3>
             </div>
             <span className="text-[10px] text-slate-400 font-mono">Min: 3 Samples</span>
           </div>
 
-          <div className="flex-1 overflow-y-auto space-y-2 pr-1">
+          <div className="flex-1 overflow-y-auto space-y-2.5 pr-1">
             {signs.map(sign => {
               const sampleCount = sign.samples.length;
               const isTrained = sampleCount >= (sign.minExamplesRequired || 3);
@@ -303,31 +292,31 @@ export const CorpusBuilder: React.FC = () => {
                 <div
                   key={sign.id}
                   onClick={() => setSelectedSign(sign)}
-                  className={`p-3 rounded-xl border transition cursor-pointer select-none ${
+                  className={`p-3.5 rounded-2xl border transition-all duration-200 cursor-pointer select-none ${
                     isSelected
-                      ? 'bg-purple-950/70 border-purple-500 shadow-md'
-                      : 'bg-slate-950/60 border-slate-800/80 hover:bg-slate-850 hover:border-slate-700'
+                      ? 'bg-gradient-to-r from-indigo-950/80 to-cyan-950/80 border-cyan-400/60 shadow-lg shadow-cyan-500/20'
+                      : 'bg-white/5 border-white/5 hover:border-white/15 hover:bg-white/10'
                   }`}
                 >
-                  <div className="flex items-center justify-between mb-1">
-                    <span className="font-extrabold text-sm text-white tracking-wide">
+                  <div className="flex items-center justify-between mb-1.5">
+                    <span className="font-black text-sm text-white tracking-wider">
                       {sign.label}
                     </span>
                     <span
-                      className={`text-[10px] font-mono px-2 py-0.5 rounded-full font-bold ${
+                      className={`text-[9px] font-mono px-2 py-0.5 rounded-full font-bold uppercase tracking-wider ${
                         isTrained
-                          ? 'bg-emerald-950 text-emerald-300 border border-emerald-700/60'
-                          : 'bg-amber-950 text-amber-300 border border-amber-700/60'
+                          ? 'bg-cyan-950/80 text-cyan-300 border border-cyan-500/40'
+                          : 'bg-amber-950/80 text-amber-300 border border-amber-500/40'
                       }`}
                     >
-                      {isTrained ? `${sampleCount} Examples (Ready)` : `${sampleCount}/3 Examples (Need ${3 - sampleCount})`}
+                      {isTrained ? `${sampleCount} Ex (Ready)` : `${sampleCount}/3 Ex (Need ${3 - sampleCount})`}
                     </span>
                   </div>
 
-                  <p className="text-xs text-slate-400 line-clamp-1">{sign.englishMeaning}</p>
+                  <p className="text-xs text-slate-400 font-mono line-clamp-1">{sign.englishMeaning}</p>
 
-                  <div className="mt-2 flex items-center justify-between text-[11px] text-slate-500">
-                    <span className="px-1.5 py-0.5 rounded bg-slate-900 border border-slate-800 text-[10px]">
+                  <div className="mt-2.5 flex items-center justify-between text-[10px] font-mono text-slate-500">
+                    <span className="px-2 py-0.5 rounded-md bg-black/40 border border-white/5">
                       {sign.category}
                     </span>
                     <span>{sign.isBuiltIn ? 'Core Seed' : 'Custom Added'}</span>
@@ -339,32 +328,32 @@ export const CorpusBuilder: React.FC = () => {
         </div>
 
         {/* Selected Sign Details & 3-Shot Recording Studio (8 columns) */}
-        <div className="lg:col-span-8 bg-slate-900 rounded-2xl border border-slate-800 p-6 flex flex-col h-[650px] shadow-xl overflow-y-auto">
+        <div className="lg:col-span-8 glass-panel rounded-3xl border border-white/10 p-6 flex flex-col h-[650px] shadow-2xl overflow-y-auto">
           {selectedSign ? (
             <div className="space-y-6">
               {/* Header Info */}
-              <div className="flex flex-wrap items-center justify-between gap-3 pb-4 border-b border-slate-800">
+              <div className="flex flex-wrap items-center justify-between gap-3 pb-4 border-b border-white/5">
                 <div>
-                  <div className="flex items-center space-x-2">
-                    <h2 className="text-2xl font-black text-white tracking-wide">
+                  <div className="flex items-center space-x-2.5">
+                    <h2 className="text-2xl font-black text-white tracking-wider">
                       {selectedSign.label}
                     </h2>
-                    <span className="text-xs font-mono px-2 py-0.5 rounded bg-purple-900/60 text-purple-300 border border-purple-700/50">
+                    <span className="text-[10px] font-mono uppercase tracking-widest px-2.5 py-0.5 rounded-full bg-indigo-950/80 text-indigo-300 border border-indigo-500/40">
                       {selectedSign.category}
                     </span>
                     {selectedSign.isBuiltIn && (
-                      <span className="text-[10px] px-2 py-0.5 rounded bg-blue-950 text-blue-300 border border-blue-800">
+                      <span className="text-[9px] font-mono uppercase tracking-widest px-2 py-0.5 rounded-full bg-white/5 text-slate-300 border border-white/10">
                         System Built-in
                       </span>
                     )}
                   </div>
-                  <p className="text-sm text-slate-300 mt-1">{selectedSign.englishMeaning}</p>
+                  <p className="text-xs font-mono text-slate-300 mt-1">{selectedSign.englishMeaning}</p>
                 </div>
 
                 {!selectedSign.isBuiltIn && (
                   <button
                     onClick={() => handleDeleteSign(selectedSign.id)}
-                    className="p-2 text-rose-400 hover:text-rose-300 hover:bg-rose-950/50 rounded-lg border border-rose-900/40 transition text-xs flex items-center space-x-1"
+                    className="p-2.5 text-rose-400 hover:text-rose-300 hover:bg-rose-950/50 rounded-xl border border-rose-500/30 transition-all duration-200 text-xs font-mono flex items-center space-x-1.5"
                   >
                     <Trash2 className="w-3.5 h-3.5" />
                     <span>Delete Sign</span>
@@ -373,20 +362,20 @@ export const CorpusBuilder: React.FC = () => {
               </div>
 
               {/* 3-Shot Training Progress Card */}
-              <div className="bg-slate-950 p-4 rounded-xl border border-slate-800">
+              <div className="bg-slate-950/80 p-5 rounded-2xl border border-white/10 shadow-inner">
                 <div className="flex items-center justify-between mb-2">
-                  <span className="text-xs font-mono font-bold text-slate-300 uppercase">
-                    3-Shot Low-Resource Training Progress
+                  <span className="text-xs font-mono font-bold text-slate-300 uppercase tracking-widest">
+                    3-Shot Few-Shot Training Status
                   </span>
-                  <span className="text-xs font-mono text-emerald-400 font-bold">
+                  <span className="text-xs font-mono text-cyan-400 font-bold">
                     {selectedSign.samples.length} / {selectedSign.minExamplesRequired || 3} Minimum Samples
                   </span>
                 </div>
 
                 {/* Progress bar */}
-                <div className="w-full h-3 bg-slate-800 rounded-full overflow-hidden mb-3">
+                <div className="w-full h-2.5 bg-slate-800 rounded-full overflow-hidden mb-4">
                   <div
-                    className="h-full bg-gradient-to-r from-emerald-500 to-teal-400 transition-all duration-300"
+                    className="h-full bg-gradient-to-r from-indigo-500 to-cyan-400 transition-all duration-500 ease-out"
                     style={{
                       width: `${Math.min(100, (selectedSign.samples.length / (selectedSign.minExamplesRequired || 3)) * 100)}%`,
                     }}
@@ -402,22 +391,22 @@ export const CorpusBuilder: React.FC = () => {
                     return (
                       <div
                         key={step}
-                        className={`p-3 rounded-lg border text-center transition ${
+                        className={`p-3.5 rounded-xl border text-center transition-all duration-200 ${
                           isCompleted
-                            ? 'bg-emerald-950/40 border-emerald-600/60 text-emerald-300'
-                            : 'bg-slate-900 border-slate-800 text-slate-500'
+                            ? 'bg-cyan-950/40 border-cyan-500/50 text-cyan-300'
+                            : 'bg-white/5 border-white/5 text-slate-500'
                         }`}
                       >
-                        <div className="flex items-center justify-center space-x-1 mb-1">
+                        <div className="flex items-center justify-center space-x-1.5 mb-1">
                           {isCompleted ? (
-                            <CheckCircle className="w-3.5 h-3.5 text-emerald-400" />
+                            <CheckCircle className="w-3.5 h-3.5 text-cyan-400" />
                           ) : (
                             <Clock className="w-3.5 h-3.5" />
                           )}
                           <span className="text-xs font-mono font-bold">Sample #{step}</span>
                         </div>
-                        <p className="text-[10px]">
-                          {isCompleted ? `${sample.frames?.length || 15} landmark frames` : 'Not recorded'}
+                        <p className="text-[10px] font-mono">
+                          {isCompleted ? `${sample.frames?.length || 15} landmark frames` : 'Pending'}
                         </p>
                       </div>
                     );
@@ -426,22 +415,27 @@ export const CorpusBuilder: React.FC = () => {
               </div>
 
               {/* Live Webcam Recording Studio for this sign */}
-              <div className="bg-slate-950 p-4 rounded-xl border border-slate-800 space-y-3">
+              <div className="bg-slate-950/80 p-5 rounded-2xl border border-white/10 space-y-3.5 shadow-inner">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center space-x-2">
-                    <Video className="w-4 h-4 text-emerald-400" />
-                    <span className="text-sm font-bold text-white">Landmark Extraction & Recording Studio</span>
+                    <Video className="w-4 h-4 text-cyan-400" />
+                    <span className="text-xs font-mono font-bold uppercase tracking-widest text-white">Landmark Trajectory Studio</span>
                   </div>
                   {isRecordingSample && (
-                    <span className="flex items-center space-x-1 text-xs text-red-400 font-mono animate-pulse">
-                      <span className="w-2.5 h-2.5 rounded-full bg-red-500" />
-                      <span>RECORDING ({recordedFramesCount} frames)...</span>
+                    <span className="flex items-center space-x-1.5 text-xs text-rose-400 font-mono animate-pulse">
+                      <span className="w-2.5 h-2.5 rounded-full bg-rose-500" />
+                      <span>CAPTURING ({recordedFramesCount} frames)...</span>
                     </span>
                   )}
                 </div>
 
                 {/* Video & Skeleton Canvas Box */}
-                <div className="relative w-full h-[220px] bg-slate-900 rounded-xl overflow-hidden flex items-center justify-center border border-slate-800">
+                <div className="relative w-full h-[220px] bg-slate-900 rounded-2xl overflow-hidden flex items-center justify-center border border-white/10">
+                  <div className="hud-corner-tl z-20 pointer-events-none" />
+                  <div className="hud-corner-tr z-20 pointer-events-none" />
+                  <div className="hud-corner-bl z-20 pointer-events-none" />
+                  <div className="hud-corner-br z-20 pointer-events-none" />
+
                   <video
                     ref={videoRef}
                     playsInline
@@ -456,30 +450,29 @@ export const CorpusBuilder: React.FC = () => {
                     className="absolute inset-0 w-full h-full object-cover z-10"
                   />
 
-                  {/* Countdown overlay */}
                   {countdown !== null && (
-                    <div className="absolute inset-0 z-30 bg-slate-950/80 backdrop-blur-sm flex flex-col items-center justify-center">
-                      <span className="text-7xl font-black text-emerald-400 animate-ping">
+                    <div className="absolute inset-0 z-30 bg-slate-950/85 backdrop-blur-md flex flex-col items-center justify-center">
+                      <span className="text-7xl font-black text-cyan-400 animate-ping">
                         {countdown}
                       </span>
-                      <p className="text-sm font-bold text-white mt-2">Get ready to perform sign...</p>
+                      <p className="text-xs font-mono font-bold text-white mt-2 uppercase tracking-widest">Get ready to execute sign...</p>
                     </div>
                   )}
 
                   {isRecordingSample && (
-                    <div className="absolute inset-0 z-20 border-4 border-red-500/80 animate-pulse pointer-events-none" />
+                    <div className="absolute inset-0 z-20 border-2 border-rose-500/80 animate-pulse pointer-events-none shadow-[inset_0_0_40px_rgba(244,63,94,0.4)]" />
                   )}
                 </div>
 
                 {/* Action to Record Sample */}
                 <div className="flex items-center justify-between pt-2">
-                  <p className="text-xs text-slate-400">
+                  <p className="text-xs text-slate-400 font-mono">
                     Hold position or perform motion continuously for 2.2 seconds.
                   </p>
                   <button
                     onClick={() => triggerRecordSample(selectedSign.id)}
                     disabled={isRecordingSample || countdown !== null}
-                    className="px-5 py-2.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 disabled:opacity-50 text-white rounded-xl font-bold text-xs tracking-wide shadow-lg shadow-emerald-900/30 flex items-center space-x-2 transition cursor-pointer"
+                    className="px-5 py-2.5 bg-gradient-to-r from-cyan-600 to-indigo-600 hover:from-cyan-500 hover:to-indigo-500 disabled:opacity-50 text-white rounded-xl font-mono font-bold text-xs uppercase tracking-wider shadow-lg shadow-cyan-500/25 flex items-center space-x-2 transition-all duration-200 cursor-pointer"
                   >
                     <Play className="w-3.5 h-3.5 fill-white" />
                     <span>Record Sample #{selectedSign.samples.length + 1}</span>
@@ -488,13 +481,13 @@ export const CorpusBuilder: React.FC = () => {
               </div>
 
               {/* Signing Instructions */}
-              <div className="bg-slate-950 p-4 rounded-xl border border-slate-800 space-y-2">
-                <span className="text-xs font-mono font-bold text-purple-400 uppercase">
-                  How to Sign:
+              <div className="bg-slate-950/80 p-5 rounded-2xl border border-white/10 space-y-2 shadow-inner">
+                <span className="text-[10px] font-mono font-bold text-cyan-400 uppercase tracking-widest">
+                  Signing Instructions:
                 </span>
-                <p className="text-xs text-slate-300 leading-relaxed">{selectedSign.description}</p>
+                <p className="text-xs text-slate-300 font-mono leading-relaxed">{selectedSign.description}</p>
                 {selectedSign.instructions && (
-                  <ul className="list-disc list-inside text-xs text-slate-400 space-y-1">
+                  <ul className="list-disc list-inside text-xs font-mono text-slate-400 space-y-1">
                     {selectedSign.instructions.map((inst, i) => (
                       <li key={i}>{inst}</li>
                     ))}
@@ -503,7 +496,7 @@ export const CorpusBuilder: React.FC = () => {
               </div>
             </div>
           ) : (
-            <div className="flex flex-col items-center justify-center h-full text-slate-500">
+            <div className="flex flex-col items-center justify-center h-full text-slate-500 font-mono">
               <Database className="w-12 h-12 mb-2 text-slate-700" />
               <p>Select a sign from the list or register a new sign</p>
             </div>
@@ -513,16 +506,16 @@ export const CorpusBuilder: React.FC = () => {
 
       {/* Add New Sign Modal */}
       {isAddingNew && (
-        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-slate-900 border border-purple-500/50 rounded-2xl max-w-lg w-full p-6 shadow-2xl space-y-4">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-800">
-              <div className="flex items-center space-x-2">
-                <div className="w-8 h-8 rounded-lg bg-emerald-950 border border-emerald-600/40 flex items-center justify-center text-emerald-400">
+        <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-4">
+          <div className="glass-panel-elevated border border-white/15 rounded-3xl max-w-lg w-full p-6 shadow-2xl space-y-4 animate-in fade-in zoom-in-95">
+            <div className="flex items-center justify-between pb-3.5 border-b border-white/10">
+              <div className="flex items-center space-x-2.5">
+                <div className="w-8 h-8 rounded-xl bg-cyan-950 border border-cyan-500/40 flex items-center justify-center text-cyan-400">
                   <Plus className="w-4 h-4" />
                 </div>
                 <div>
-                  <h3 className="text-lg font-black text-white">Teach New Sign (3-Shot)</h3>
-                  <p className="text-xs text-slate-400">Add a new vocabulary sign to the kiosk</p>
+                  <h3 className="text-base font-black text-white tracking-wide">Register New ISL Sign</h3>
+                  <p className="text-xs font-mono text-slate-400">3-shot low-resource dataset acquisition</p>
                 </div>
               </div>
               <button
@@ -535,7 +528,7 @@ export const CorpusBuilder: React.FC = () => {
 
             <form onSubmit={handleCreateSign} className="space-y-4">
               <div>
-                <label className="block text-xs font-mono font-bold text-slate-300 uppercase mb-1">
+                <label className="block text-xs font-mono font-bold text-slate-300 uppercase tracking-widest mb-1.5">
                   Sign Label (Gloss) *
                 </label>
                 <input
@@ -544,12 +537,12 @@ export const CorpusBuilder: React.FC = () => {
                   placeholder="e.g. CANTEEN, AUDITORIUM, LUNCH, WIFI"
                   value={newLabel}
                   onChange={(e) => setNewLabel(e.target.value)}
-                  className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-emerald-500 font-mono"
+                  className="w-full bg-white/5 border border-white/10 rounded-xl px-3.5 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-cyan-500 font-mono"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-mono font-bold text-slate-300 uppercase mb-1">
+                <label className="block text-xs font-mono font-bold text-slate-300 uppercase tracking-widest mb-1.5">
                   English Spoken Translation *
                 </label>
                 <input
@@ -558,18 +551,18 @@ export const CorpusBuilder: React.FC = () => {
                   placeholder="e.g. Where is the student cafeteria?"
                   value={newMeaning}
                   onChange={(e) => setNewMeaning(e.target.value)}
-                  className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                  className="w-full bg-white/5 border border-white/10 rounded-xl px-3.5 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-cyan-500 font-mono"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-mono font-bold text-slate-300 uppercase mb-1">
+                <label className="block text-xs font-mono font-bold text-slate-300 uppercase tracking-widest mb-1.5">
                   Category
                 </label>
                 <select
                   value={newCategory}
                   onChange={(e) => setNewCategory(e.target.value as any)}
-                  className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                  className="w-full bg-slate-900 border border-white/10 rounded-xl px-3.5 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-cyan-500 font-mono"
                 >
                   <option value="Hackathon & Campus">Hackathon & Campus</option>
                   <option value="Greetings">Greetings</option>
@@ -581,7 +574,7 @@ export const CorpusBuilder: React.FC = () => {
               </div>
 
               <div>
-                <label className="block text-xs font-mono font-bold text-slate-300 uppercase mb-1">
+                <label className="block text-xs font-mono font-bold text-slate-300 uppercase tracking-widest mb-1.5">
                   Sign Description & Movement Instructions
                 </label>
                 <textarea
@@ -589,7 +582,7 @@ export const CorpusBuilder: React.FC = () => {
                   placeholder="e.g. Point forward with right hand and mimic holding a plate..."
                   value={newDescription}
                   onChange={(e) => setNewDescription(e.target.value)}
-                  className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                  className="w-full bg-white/5 border border-white/10 rounded-xl px-3.5 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-cyan-500 font-mono"
                 />
               </div>
 
@@ -597,13 +590,13 @@ export const CorpusBuilder: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => setIsAddingNew(false)}
-                  className="px-4 py-2 rounded-xl text-xs font-bold text-slate-400 hover:text-white transition"
+                  className="px-4 py-2 rounded-xl text-xs font-mono font-bold text-slate-400 hover:text-white transition"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white rounded-xl text-xs font-bold tracking-wide shadow-lg shadow-emerald-900/30 transition flex items-center space-x-1.5"
+                  className="px-5 py-2.5 bg-gradient-to-r from-cyan-600 to-indigo-600 hover:from-cyan-500 hover:to-indigo-500 text-white rounded-xl text-xs font-mono font-bold tracking-wider uppercase shadow-lg shadow-cyan-500/25 transition-all duration-200 flex items-center space-x-1.5"
                 >
                   <CheckCircle className="w-4 h-4" />
                   <span>Create & Record Samples (3-Shot)</span>
@@ -617,7 +610,6 @@ export const CorpusBuilder: React.FC = () => {
   );
 };
 
-// Procedural fallback hand generator
 function generateSyntheticHand(time: number): Landmark3D[] {
   const t = time / 1000;
   const cx = 0.5 + Math.sin(t * 1.5) * 0.05;

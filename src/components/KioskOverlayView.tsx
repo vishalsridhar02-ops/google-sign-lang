@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Camera, Mic, Volume2, Sparkles, RefreshCw, Eye, MessageSquare, Layers } from 'lucide-react';
+import { Camera, Mic, Volume2, Sparkles, RefreshCw, Eye, MessageSquare, Layers, Crosshair, Terminal } from 'lucide-react';
 import { handTracker } from '../services/handTracker';
 import { corpusManager } from '../services/corpusMatcher';
 import { speechService } from '../services/speechService';
@@ -23,13 +23,12 @@ export const KioskOverlayView: React.FC<KioskOverlayViewProps> = ({
   const [activeMatch, setActiveMatch] = useState<LiveRecognitionMatch | null>(null);
   const [activeGlosses, setActiveGlosses] = useState<string[]>([]);
   const [interimVoice, setInterimVoice] = useState<string>('');
-  const [lastAnnouncement, setLastAnnouncement] = useState<string>('Press HOLD TO SIGN or HOLD TO SPEAK to start');
+  const [lastAnnouncement, setLastAnnouncement] = useState<string>('Ready • Press HOLD TO SIGN or HOLD TO SPEAK to initialize');
   const [avatarGlosses, setAvatarGlosses] = useState<string[]>([]);
   const [avatarExpression, setAvatarExpression] = useState<string>('NEUTRAL');
 
   const frameBufferRef = useRef<HandFrame[]>([]);
 
-  // Setup video stream
   useEffect(() => {
     let stream: MediaStream | null = null;
     let animId: number;
@@ -68,7 +67,7 @@ export const KioskOverlayView: React.FC<KioskOverlayViewProps> = ({
           }
 
           detected.forEach(hf => {
-            handTracker.drawLandmarks(ctx, hf.landmarks, canvas.width, canvas.height, '#c084fc', hf.handedness);
+            handTracker.drawLandmarks(ctx, hf.landmarks, canvas.width, canvas.height, '#06b6d4', hf.handedness);
           });
 
           if (detected.length > 0 && isHoldingSign) {
@@ -101,7 +100,6 @@ export const KioskOverlayView: React.FC<KioskOverlayViewProps> = ({
     };
   }, [isHoldingSign]);
 
-  // Handle Sign translation
   const handleSignEnd = async () => {
     speechService.playFeedbackTone('stop');
     setIsHoldingSign(false);
@@ -124,7 +122,7 @@ export const KioskOverlayView: React.FC<KioskOverlayViewProps> = ({
           timestamp: Date.now(),
           rawInput: activeGlosses.join(' • '),
           aiOutput: sentence,
-          confidence: activeMatch?.confidence || 0.88,
+          confidence: activeMatch?.confidence || 0.92,
         });
       } catch (e) {
         const fallback = activeGlosses.join(' ');
@@ -138,7 +136,6 @@ export const KioskOverlayView: React.FC<KioskOverlayViewProps> = ({
     }
   };
 
-  // Handle Voice translation
   const handleVoiceStart = () => {
     setInterimVoice('');
     const ok = speechService.startListening((text, isFinal) => {
@@ -189,8 +186,14 @@ export const KioskOverlayView: React.FC<KioskOverlayViewProps> = ({
   };
 
   return (
-    <div className="relative w-full h-[calc(100vh-140px)] min-h-[640px] bg-black overflow-hidden rounded-2xl border border-purple-900/50 shadow-2xl">
-      {/* Full viewport video feed */}
+    <div className="relative w-full h-[calc(100vh-140px)] min-h-[640px] bg-slate-950 overflow-hidden rounded-3xl border border-white/10 shadow-2xl">
+      {/* Sci-Fi HUD Viewfinder Corners */}
+      <div className="hud-corner-tl z-25" />
+      <div className="hud-corner-tr z-25" />
+      <div className="hud-corner-bl z-25" />
+      <div className="hud-corner-br z-25" />
+
+      {/* Viewport video feed */}
       <video
         ref={videoRef}
         playsInline
@@ -205,21 +208,21 @@ export const KioskOverlayView: React.FC<KioskOverlayViewProps> = ({
         className="absolute inset-0 w-full h-full object-cover z-10"
       />
 
-      {/* Top Floating HUD */}
-      <div className="absolute top-4 left-4 right-4 z-30 flex flex-wrap items-start justify-between gap-3 pointer-events-none">
-        {/* Left: Live Translation Announcement Card */}
-        <div className="bg-slate-950/85 backdrop-blur-md border border-purple-500/60 rounded-2xl p-4 max-w-xl shadow-2xl pointer-events-auto">
-          <div className="flex items-center space-x-2 text-xs font-mono font-bold text-purple-400 uppercase mb-1">
-            <Sparkles className="w-3.5 h-3.5 text-pink-400" />
-            <span>Kiosk Live Broadcast HUD</span>
+      {/* Top Floating HUD Cards */}
+      <div className="absolute top-6 left-6 right-6 z-30 flex flex-wrap items-start justify-between gap-4 pointer-events-none">
+        {/* Left: Announcement HUD */}
+        <div className="glass-panel-elevated p-5 rounded-3xl max-w-xl shadow-2xl pointer-events-auto border border-white/10">
+          <div className="flex items-center space-x-2 text-[10px] font-mono font-bold text-cyan-400 uppercase tracking-widest mb-1.5">
+            <Sparkles className="w-3.5 h-3.5 text-cyan-300" />
+            <span>Kiosk Neural Broadcast HUD</span>
           </div>
-          <h2 className="text-xl sm:text-2xl font-black text-white tracking-wide">
+          <h2 className="text-xl sm:text-2xl font-black text-white tracking-wide leading-snug">
             "{lastAnnouncement}"
           </h2>
           {activeGlosses.length > 0 && (
-            <div className="mt-2 flex items-center space-x-1.5 overflow-x-auto">
+            <div className="mt-3 flex items-center space-x-2 overflow-x-auto">
               {activeGlosses.map((g, idx) => (
-                <span key={idx} className="px-2.5 py-0.5 rounded-lg bg-purple-900 text-purple-200 font-mono font-bold text-xs">
+                <span key={idx} className="px-3 py-1 rounded-xl bg-cyan-950/80 border border-cyan-500/40 text-cyan-200 font-mono font-bold text-xs shadow-sm">
                   {g}
                 </span>
               ))}
@@ -227,8 +230,8 @@ export const KioskOverlayView: React.FC<KioskOverlayViewProps> = ({
           )}
         </div>
 
-        {/* Right: Floating Sign Avatar PIP (Picture in Picture) */}
-        <div className="w-64 h-56 rounded-2xl overflow-hidden border-2 border-indigo-500/80 shadow-2xl pointer-events-auto bg-slate-950/90 backdrop-blur-md">
+        {/* Right: Floating Sign Avatar Picture-in-Picture */}
+        <div className="w-72 h-60 rounded-3xl overflow-hidden border border-white/15 shadow-2xl pointer-events-auto bg-slate-950/90 backdrop-blur-xl">
           <SignAvatar
             glossSequence={avatarGlosses}
             expression={avatarExpression}
@@ -237,18 +240,18 @@ export const KioskOverlayView: React.FC<KioskOverlayViewProps> = ({
         </div>
       </div>
 
-      {/* Active Recording Aura Overlay */}
+      {/* Active Aura Overlays */}
       {isHoldingSign && (
-        <div className="absolute inset-0 pointer-events-none z-20 border-8 border-purple-600/70 shadow-[inset_0_0_80px_rgba(168,85,247,0.5)] animate-pulse" />
+        <div className="absolute inset-0 pointer-events-none z-20 border-4 border-cyan-400/80 shadow-[inset_0_0_80px_rgba(6,182,212,0.4)] animate-pulse" />
       )}
       {isRecordingVoice && (
-        <div className="absolute inset-0 pointer-events-none z-20 border-8 border-cyan-500/70 shadow-[inset_0_0_80px_rgba(6,182,212,0.5)] animate-pulse" />
+        <div className="absolute inset-0 pointer-events-none z-20 border-4 border-rose-500/80 shadow-[inset_0_0_80px_rgba(244,63,94,0.4)] animate-pulse" />
       )}
 
-      {/* Bottom Kiosk Giant Two-Button Dock */}
-      <div className="absolute bottom-6 left-4 right-4 z-30 flex items-center justify-center">
-        <div className="bg-slate-950/90 backdrop-blur-xl border border-slate-700 p-3 rounded-3xl shadow-2xl flex flex-col sm:flex-row items-center gap-4 max-w-3xl w-full">
-          {/* Button 1: HOLD TO SIGN (Deaf User) */}
+      {/* Bottom Floating Control Dock */}
+      <div className="absolute bottom-8 left-6 right-6 z-30 flex items-center justify-center">
+        <div className="glass-panel-elevated p-3 rounded-3xl shadow-2xl flex flex-col sm:flex-row items-center gap-4 max-w-3xl w-full border border-white/15">
+          {/* Button 1: HOLD TO SIGN */}
           <button
             onMouseDown={() => {
               speechService.playFeedbackTone('start');
@@ -260,30 +263,30 @@ export const KioskOverlayView: React.FC<KioskOverlayViewProps> = ({
               setIsHoldingSign(true);
             }}
             onTouchEnd={handleSignEnd}
-            className={`flex-1 py-5 px-6 rounded-2xl font-black text-lg tracking-wider uppercase transition-all duration-150 flex items-center justify-center space-x-3 cursor-pointer shadow-xl ${
+            className={`flex-1 py-5 px-6 rounded-2xl font-black text-lg tracking-wider uppercase transition-all duration-200 flex items-center justify-center space-x-3 cursor-pointer shadow-xl ${
               isHoldingSign
-                ? 'bg-gradient-to-r from-red-600 to-pink-600 text-white scale-[0.98] ring-4 ring-pink-500'
-                : 'bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white'
+                ? 'bg-gradient-to-r from-red-600 via-rose-600 to-orange-600 text-white scale-[0.98] ring-4 ring-rose-500'
+                : 'bg-gradient-to-r from-indigo-600 via-purple-600 to-cyan-600 hover:from-indigo-500 hover:to-cyan-500 text-white hover:shadow-cyan-500/30 hover:scale-[1.01] active:scale-[0.99] border border-cyan-400/30'
             }`}
           >
             <Camera className="w-6 h-6" />
-            <span>{isHoldingSign ? '🔴 SIGNING...' : 'HOLD TO SIGN'}</span>
+            <span>{isHoldingSign ? 'RECORDING ISL...' : 'HOLD TO SIGN'}</span>
           </button>
 
-          {/* Button 2: HOLD TO SPEAK (Hearing User) */}
+          {/* Button 2: HOLD TO SPEAK */}
           <button
             onMouseDown={handleVoiceStart}
             onMouseUp={handleVoiceEnd}
             onTouchStart={handleVoiceStart}
             onTouchEnd={handleVoiceEnd}
-            className={`flex-1 py-5 px-6 rounded-2xl font-black text-lg tracking-wider uppercase transition-all duration-150 flex items-center justify-center space-x-3 cursor-pointer shadow-xl ${
+            className={`flex-1 py-5 px-6 rounded-2xl font-black text-lg tracking-wider uppercase transition-all duration-200 flex items-center justify-center space-x-3 cursor-pointer shadow-xl ${
               isRecordingVoice
                 ? 'bg-gradient-to-r from-red-600 to-amber-600 text-white scale-[0.98] ring-4 ring-red-500'
-                : 'bg-gradient-to-r from-indigo-600 to-cyan-600 hover:from-indigo-500 hover:to-cyan-500 text-white'
+                : 'bg-gradient-to-r from-cyan-600 via-indigo-600 to-purple-600 hover:from-cyan-500 hover:to-purple-500 text-white hover:shadow-indigo-500/30 hover:scale-[1.01] active:scale-[0.99] border border-indigo-400/30'
             }`}
           >
             <Mic className="w-6 h-6" />
-            <span>{isRecordingVoice ? '🔴 LISTENING...' : 'HOLD TO SPEAK'}</span>
+            <span>{isRecordingVoice ? 'STREAMING MIC...' : 'HOLD TO SPEAK'}</span>
           </button>
         </div>
       </div>

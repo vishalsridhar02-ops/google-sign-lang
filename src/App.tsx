@@ -7,6 +7,7 @@ import { TechflowPoster } from './components/TechflowPoster';
 import { SignDictionary } from './components/SignDictionary';
 import { corpusManager } from './services/corpusMatcher';
 import { ConversationTurn, KioskLayout } from './types/isl';
+import { Terminal, Shield, Sparkles } from 'lucide-react';
 
 export default function App() {
   const [currentTab, setCurrentTab] = useState<'kiosk' | 'corpus' | 'techflow' | 'dictionary'>('kiosk');
@@ -21,6 +22,7 @@ export default function App() {
       rawInput: 'Welcome to the Aavishkar FET Hackathon at Jain University!',
       aiOutput: 'HELLO • WELCOME • JAIN UNIVERSITY • AAVISHKAR',
       expression: 'WELCOMING',
+      confidence: 0.98,
     },
     {
       id: 'welcome-seed-2',
@@ -30,10 +32,10 @@ export default function App() {
       aiOutput: 'Namaste, thank you very much for having us!',
       confidence: 0.95,
       audioPlayed: true,
+      detectedGlosses: ['NAMASTE', 'THANK_YOU'],
     },
   ]);
 
-  // Check backend health & Gemini status
   useEffect(() => {
     fetch('/api/health')
       .then(res => res.json())
@@ -53,8 +55,11 @@ export default function App() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans antialiased selection:bg-purple-600 selection:text-white">
-      {/* Top University & Hackathon Header */}
+    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans antialiased selection:bg-cyan-500 selection:text-black bg-hud-grid relative">
+      {/* Top Ambient Glow Orb */}
+      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[350px] bg-radial-glow pointer-events-none z-0" />
+
+      {/* Executive Header */}
       <Header
         currentTab={currentTab}
         onSelectTab={setCurrentTab}
@@ -64,8 +69,8 @@ export default function App() {
         corpusCount={corpusCount}
       />
 
-      {/* Main View Area */}
-      <main className="flex-1 w-full pb-8">
+      {/* Main Viewport */}
+      <main className="flex-1 w-full pb-8 relative z-10">
         {currentTab === 'kiosk' && (
           layout === 'split' ? (
             <KioskSplitView
@@ -73,7 +78,7 @@ export default function App() {
               onAddTurn={handleAddTurn}
             />
           ) : (
-            <div className="max-w-7xl mx-auto px-4 py-4">
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 py-4">
               <KioskOverlayView
                 onAddTurn={handleAddTurn}
                 onSwitchToSplit={() => setLayout('split')}
@@ -95,18 +100,21 @@ export default function App() {
         )}
       </main>
 
-      {/* Persistent Bottom Hackathon Footer */}
-      <footer className="w-full bg-slate-950/90 border-t border-slate-900 py-3 text-center text-xs text-slate-500">
-        <div className="max-w-7xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-2">
-          <div className="flex items-center space-x-2">
-            <span className="font-bold text-slate-400">JAIN (Deemed-to-be University)</span>
+      {/* Executive Terminal Footer */}
+      <footer className="w-full glass-panel border-t border-white/5 py-4 text-xs text-slate-400 relative z-10">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 flex flex-col sm:flex-row items-center justify-between gap-3">
+          <div className="flex items-center space-x-2 font-mono text-[11px]">
+            <span className="font-bold text-white tracking-wider">JAIN (Deemed-to-be University)</span>
             <span>•</span>
-            <span className="text-purple-400 font-medium">Faculty of Engineering & Technology (FET)</span>
+            <span className="text-cyan-400 font-medium">Faculty of Engineering & Technology (FET)</span>
           </div>
           <div className="flex items-center space-x-3 text-[11px] font-mono">
-            <span>Aavishkar Hackathon Kiosk</span>
+            <span className="flex items-center gap-1.5 text-slate-400">
+              <Terminal className="w-3 h-3 text-indigo-400" />
+              <span>Aavishkar Kiosk v2.4</span>
+            </span>
             <span>•</span>
-            <span className="text-emerald-400 font-bold">3-Shot Few-Shot Learning Ready</span>
+            <span className="text-cyan-400 font-bold">Few-Shot DTW Transfer Active</span>
           </div>
         </div>
       </footer>
