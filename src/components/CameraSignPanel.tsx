@@ -142,7 +142,7 @@ export const CameraSignPanel: React.FC<CameraSignPanelProps> = ({
               if (now - lastTime > 180) {
                 lastTime = now;
                 const match = corpusManager.recognizeSequence(frameBufferRef.current);
-                if (match && match.confidence >= 0.65) {
+                if (match && match.confidence >= 0.60) {
                   setActiveMatch(match);
                   if (onLiveMatchUpdate) onLiveMatchUpdate(match);
 
@@ -270,7 +270,7 @@ export const CameraSignPanel: React.FC<CameraSignPanelProps> = ({
             </div>
             <p className="text-[9px] text-slate-400 font-mono tracking-tight flex items-center gap-1.5 mt-0.5">
               <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-ping" />
-              <span>MediaPipe 3D Spatial Skeleton • Dynamic Time Warping</span>
+              <span>MediaPipe 3D Spatial Skeleton • Scale-Invariant DTW Trajectory</span>
             </p>
           </div>
         </div>

@@ -1,9 +1,9 @@
 import express from 'express';
-import dotenv from 'dotenv';
 import path from 'path';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
 import { GoogleGenAI } from '@google/genai';
+import dotenv from 'dotenv';
 
 dotenv.config();
 
@@ -13,9 +13,9 @@ const __dirname = path.dirname(__filename);
 const app = express();
 const PORT = parseInt(process.env.PORT || '3000', 10);
 
-app.use(express.json({ limit: '15mb' }));
+app.use(express.json({ limit: '50mb' }));
 
-// In-memory / persisted corpus backup store
+// Persistent custom corpus storage file
 const CORPUS_FILE = path.join(__dirname, 'custom-corpus-store.json');
 let customSignsCorpus: any[] = [];
 
@@ -25,17 +25,18 @@ try {
     customSignsCorpus = JSON.parse(raw);
   }
 } catch (e) {
-  console.warn('Could not load custom corpus store:', e);
+  console.warn('Could not load existing corpus file:', e);
 }
 
-// Initialize Gemini SDK if API key is provided
+// Initialize Gemini Client
+const apiKey = process.env.GEMINI_API_KEY;
 let aiClient: GoogleGenAI | null = null;
-if (process.env.GEMINI_API_KEY && process.env.GEMINI_API_KEY !== 'MY_GEMINI_API_KEY') {
+
+if (apiKey) {
   try {
-    aiClient = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
-    console.log('Gemini API Client initialized with model gemini-3.8-flash.');
+    aiClient = new GoogleGenAI({ apiKey });
   } catch (err) {
-    console.warn('Failed to initialize GoogleGenAI client:', err);
+    console.warn('Failed initializing GoogleGenAI:', err);
   }
 }
 
@@ -44,14 +45,11 @@ app.get('/api/health', (req, res) => {
   res.json({
     status: 'ok',
     geminiActive: !!aiClient,
-    model: 'gemini-3.8-flash',
-    uptime: process.uptime(),
-    customSignsCount: customSignsCorpus.length,
     timestamp: new Date().toISOString(),
   });
 });
 
-// Gloss-to-Sentence API (Transforms ISL glosses into polite, natural English sentences)
+// Gloss-to-Sentence API (Transforms authentic ISL SOV & WH-End glosses into polite, natural English sentences)
 app.post('/api/gloss-to-sentence', async (req, res) => {
   try {
     const { glosses, context } = req.body;
@@ -61,41 +59,37 @@ app.post('/api/gloss-to-sentence', async (req, res) => {
 
     const glossString = glosses.join(' ');
 
-    // Rule-based fallback dictionary
+    // Rule-based fallback dictionary respecting ISL SOV and WH-end structure
     const fallbackSentence = generateRuleBasedEnglish(glosses, context);
 
     if (!aiClient) {
       return res.json({
         sentence: fallbackSentence,
         source: 'rule-based',
-        note: 'Using intelligent rule-based engine. Add GEMINI_API_KEY in .env for generative nuance.',
+        note: 'Using ISL SOV/WH-End rule-based engine. Add GEMINI_API_KEY in .env for generative nuance.',
       });
     }
 
-    const prompt = `You are the AI brain of the "Aavishkar FET Hackathon" Two-Way Indian Sign Language (ISL) Kiosk.
-A Deaf user signed the following sequence of ISL glosses:
+    const prompt = `You are an expert Indian Sign Language (ISL) linguist and interpreter for the Aavishkar FET Hackathon Kiosk.
+A Deaf participant signed the following sequence of authentic Indian Sign Language (ISL) glosses:
 "${glossString}"
-Context / Situation: ${context || 'Public Kiosk / University Hackathon Booth'}
+Context: ${context || 'Aavishkar FET Hackathon Campus Kiosk'}
+
+IMPORTANT ISL GRAMMAR SPECIFICATION:
+- The input glosses follow authentic ISL syntax: Subject-Object-Verb (SOV) order and WH-interrogatives placed at the end (e.g., "RESTROOM WHERE" = "Where is the restroom?", "ME WATER WANT" = "I would like some drinking water, please", "YOU HELP NEED" = "Do you need any assistance?").
 
 Your task:
-Convert these ISL glosses into ONE clear, grammatically correct, natural, polite spoken English sentence that can be spoken out loud via text-to-speech to a hearing person at the booth.
-Do NOT output conversational filler, disclaimers, quotation marks, or explanations. Only output the final spoken sentence.
+Translate these authentic ISL glosses into ONE clear, grammatically correct, natural, polite spoken English sentence (standard SVO) for text-to-speech output to a hearing person.
+Do NOT output conversational filler, disclaimers, quotation marks, or explanations. Only output the final spoken English sentence.
 
-Example 1:
-Glosses: "NAMASTE HELP NEED"
-Output: Hello, I need some help, please.
-
-Example 2:
-Glosses: "WHERE REGISTRATION DESK"
-Output: Excuse me, where is the registration desk located?
-
-Example 3:
-Glosses: "WATER BOTTLE WHERE CAN FIND"
-Output: Could you please tell me where I can find drinking water?
-
-Example 4:
-Glosses: "ME TEAM AAVISHKAR PRESENT PROJECT"
-Output: We are team Aavishkar and we are here to present our project.`;
+Examples:
+- Input: "RESTROOM WHERE" -> Output: Where is the restroom located?
+- Input: "ME WATER WANT" -> Output: Could I please have some drinking water?
+- Input: "NAMASTE HELP NEED" -> Output: Namaste, I need some help, please.
+- Input: "REGISTRATION DESK WHERE" -> Output: Excuse me, where is the registration desk?
+- Input: "ME TEAM AAVISHKAR PROJECT PRESENT" -> Output: We are team Aavishkar and we are here to present our project.
+- Input: "DOCTOR NEED URGENT" -> Output: I urgently need a doctor or medical attention.
+- Input: "YOU HELP NEED" -> Output: Do you need any help?`;
 
     try {
       const response = await aiClient.models.generateContent({
@@ -122,7 +116,7 @@ Output: We are team Aavishkar and we are here to present our project.`;
   }
 });
 
-// Speech-to-Sign API (Transforms spoken English into structured ISL glosses and visual visualizer instructions)
+// Speech-to-Sign API (Transforms spoken English into authentic ISL SOV & WH-End glosses)
 app.post('/api/speech-to-sign', async (req, res) => {
   try {
     const { speechText } = req.body;
@@ -136,25 +130,46 @@ app.post('/api/speech-to-sign', async (req, res) => {
       return res.json({
         ...fallbackResult,
         source: 'rule-based',
-        note: 'Using intelligent sign mapping engine. Set GEMINI_API_KEY in .env for advanced decomposition.',
+        note: 'Using authentic ISL SOV/WH-End rule mapping engine. Set GEMINI_API_KEY in .env for advanced decomposition.',
       });
     }
 
-    const prompt = `You are the AI brain of the Aavishkar FET Hackathon Two-Way Indian Sign Language (ISL) Kiosk.
-A hearing person spoke this sentence into the kiosk microphone:
-"${speechText}"
+    const prompt = `You are a certified Indian Sign Language (ISL) linguist and computational grammar engine for the Aavishkar FET Hackathon Kiosk.
+Convert this spoken English sentence into authentic Indian Sign Language (ISL) glosses.
 
-Convert this spoken English into:
-1. An array of simplified Indian Sign Language (ISL) gloss tokens in chronological signing grammar (ISL uses Topic-Comment / Subject-Object-Verb order).
-2. The primary emotion or facial expression to convey (e.g., "NEUTRAL", "QUESTION", "WELCOMING", "URGENT", "THANKFUL").
-3. A simplified visual summary sentence for the sign display.
+STRICT AUTHENTIC ISL GRAMMAR RULES:
+1. SUBJECT-OBJECT-VERB (SOV) ORDER:
+   - English SVO ("I want water") MUST become ISL SOV: ["ME", "WATER", "WANT"].
+   - "Do you need help?" -> ["YOU", "HELP", "NEED"].
+   - "We present project" -> ["WE", "PROJECT", "PRESENT"].
+   - "I am looking for doctor" -> ["ME", "DOCTOR", "SEARCH"].
+
+2. INTERROGATIVE / WH-QUESTION TOKENS AT THE ABSOLUTE END:
+   - All WH-question tokens (WHERE, WHAT, WHY, HOW, WHEN, WHO) MUST be placed at the VERY END of the gloss array.
+   - "Where is the restroom?" -> ["RESTROOM", "WHERE"].
+   - "Where can I find drinking water?" -> ["ME", "WATER", "FIND", "WHERE"].
+   - "What is your name?" -> ["YOUR", "NAME", "WHAT"].
+   - "Where is the registration desk?" -> ["REGISTRATION", "DESK", "WHERE"].
+   - "Why are you here?" -> ["YOU", "HERE", "WHY"].
+
+3. ELIMINATE ENGLISH GRAMMATICAL PARTICLES:
+   - ELIMINATE ALL auxiliary/copula verbs: "is", "are", "am", "was", "were", "be", "been", "being", "do", "does", "did".
+   - ELIMINATE ALL articles: "a", "an", "the".
+   - ELIMINATE ALL prepositions and conjunctions: "to", "in", "at", "on", "of", "for", "from", "with", "by", "and", "or", "but".
+   - ELIMINATE polite fillers: "please", "kindly" (facial expression conveys politeness in ISL).
+
+4. LEMMATIZE ROOT WORDS ONLY (NO ENGLISH INFLECTIONAL SUFFIXES):
+   - Strip all inflectional suffixes like -ing, -ed, -s, -es, -ly, -tion.
+   - E.g. "drinking" -> "WATER" or "DRINK", "presenting" -> "PRESENT", "doctors" -> "DOCTOR", "washrooms" -> "RESTROOM".
+
+Spoken sentence: "${speechText}"
 
 Respond with strict JSON ONLY in this format:
 {
-  "glosses": ["HELLO", "WELCOME", "CAMPUS"],
-  "expression": "WELCOMING",
-  "summary": "Welcome to our campus!",
-  "keyConcepts": ["welcome", "campus"]
+  "glosses": ["RESTROOM", "WHERE"],
+  "expression": "QUESTION",
+  "summary": "Restroom location inquiry",
+  "keyConcepts": ["restroom", "where"]
 }`;
 
     try {
@@ -219,83 +234,195 @@ app.post('/api/corpus', (req, res) => {
   }
 });
 
-// Helper rule-based translation heuristics
+// Helper rule-based translation heuristics adhering to ISL SOV and WH-end grammar
 function generateRuleBasedEnglish(glosses: string[], context?: string): string {
   const g = glosses.map(x => x.toUpperCase().trim());
   const str = g.join(' ');
+  const lastGloss = g[g.length - 1];
 
-  if (str.includes('NAMASTE') && str.includes('HELP')) return 'Namaste! Could you please help me?';
-  if (str.includes('NAMASTE') || str.includes('HELLO')) {
-    if (str.includes('WELCOME')) return 'Hello and welcome!';
-    return 'Hello, greetings!';
+  // Check if it's an interrogative / WH-question at the end
+  if (lastGloss === 'WHERE') {
+    if (str.includes('RESTROOM') || str.includes('TOILET') || str.includes('WASHROOM')) {
+      return 'Excuse me, where is the restroom located?';
+    }
+    if (str.includes('WATER')) {
+      return 'Could you please tell me where I can find drinking water?';
+    }
+    if (str.includes('DESK') || str.includes('REGISTRATION')) {
+      return 'Where is the registration desk?';
+    }
+    if (str.includes('DOCTOR') || str.includes('HOSPITAL')) {
+      return 'Where can I find a doctor or medical help?';
+    }
+    const target = g.filter(x => x !== 'WHERE').join(' ');
+    return `Where can I find the ${target.toLowerCase()}?`;
   }
+
+  if (lastGloss === 'WHAT') {
+    if (str.includes('NAME')) return 'What is your name?';
+    return 'What is this?';
+  }
+
+  // Greetings and common phrases
+  if (str.includes('NAMASTE')) {
+    if (str.includes('HELP')) return 'Namaste! Could you please help me?';
+    if (str.includes('WELCOME')) return 'Namaste and welcome to the hackathon!';
+    return 'Namaste, greetings!';
+  }
+
   if (str.includes('THANK')) return 'Thank you very much!';
-  if (str.includes('WATER')) return 'Could you please give me some drinking water?';
-  if (str.includes('DOCTOR') || str.includes('HOSPITAL') || str.includes('MEDICINE')) return 'I need medical assistance or a doctor, please.';
-  if (str.includes('RESTROOM') || str.includes('TOILET') || str.includes('WASHROOM')) return 'Could you show me where the restroom is?';
-  if (str.includes('WHERE') && str.includes('ROOM')) return 'Excuse me, where is this room located?';
-  if (str.includes('WHERE') && str.includes('DESK')) return 'Where can I find the registration desk?';
+  if (str.includes('HELLO')) return 'Hello, nice to meet you!';
+
+  // SOV patterns (Subject - Object - Verb)
+  // E.g., "ME WATER WANT" -> "I would like some drinking water, please."
+  if (str.includes('WATER') && (str.includes('WANT') || str.includes('NEED') || str.includes('DRINK'))) {
+    return 'I would like some drinking water, please.';
+  }
+
+  if (str.includes('HELP') && (str.includes('NEED') || str.includes('WANT'))) {
+    if (str.startsWith('YOU')) {
+      return 'Do you need any help?';
+    }
+    return 'I need some help or assistance, please.';
+  }
+
+  if (str.includes('DOCTOR') || str.includes('HOSPITAL')) {
+    if (str.includes('URGENT')) return 'I urgently need a doctor or medical attention.';
+    return 'I need to see a doctor, please.';
+  }
+
+  if (str.includes('PROJECT') && (str.includes('PRESENT') || str.includes('DEMO'))) {
+    return 'We are here to present our project for the hackathon.';
+  }
+
+  if (str.includes('AAVISHKAR')) {
+    return 'Welcome to the Aavishkar FET Hackathon demo!';
+  }
+
+  if (str.includes('JAIN') || str.includes('COLLEGE') || str.includes('CAMPUS')) {
+    return 'Welcome to Jain (Deemed-to-be University) Faculty of Engineering.';
+  }
+
   if (str.includes('YES')) return 'Yes, that is correct.';
   if (str.includes('NO')) return 'No, thank you.';
-  if (str.includes('STOP')) return 'Please stop for a moment.';
-  if (str.includes('AAVISHKAR')) return 'Welcome to the Aavishkar FET Hackathon demo!';
-  if (str.includes('COLLEGE') || str.includes('JAIN')) return 'Welcome to Jain Deemed-to-be University.';
 
   // General heuristic
   const capitalized = glosses.map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(' ');
   return `I am signing: "${capitalized}".`;
 }
 
+// Deterministic Authentic ISL Grammar Parser
+// Applies SOV ordering, WH-end placement, particle elimination, and root word mapping
 function generateRuleBasedISL(speech: string) {
-  const s = speech.toLowerCase();
-  const glosses: string[] = [];
+  const rawLower = speech.toLowerCase().trim();
   let expression = 'NEUTRAL';
 
-  if (s.includes('?')) expression = 'QUESTION';
-  if (s.includes('thank')) expression = 'THANKFUL';
-  if (s.includes('welcome') || s.includes('hello') || s.includes('hi')) expression = 'WELCOMING';
-  if (s.includes('urgent') || s.includes('emergency') || s.includes('pain')) expression = 'URGENT';
+  if (rawLower.includes('?')) expression = 'QUESTION';
+  if (rawLower.includes('thank')) expression = 'THANKFUL';
+  if (rawLower.includes('welcome') || rawLower.includes('hello') || rawLower.includes('namaste')) expression = 'WELCOMING';
+  if (rawLower.includes('urgent') || rawLower.includes('emergency') || rawLower.includes('pain') || rawLower.includes('hurry')) expression = 'URGENT';
 
-  const vocabMap: [RegExp, string][] = [
-    [/hello|hi|greetings/i, 'HELLO'],
-    [/namaste/i, 'NAMASTE'],
-    [/welcome/i, 'WELCOME'],
-    [/thank/i, 'THANK YOU'],
-    [/help|assist/i, 'HELP'],
-    [/water|drink/i, 'WATER'],
-    [/doctor|medical|hospital/i, 'DOCTOR'],
-    [/restroom|washroom|toilet|bathroom/i, 'RESTROOM'],
-    [/where|location/i, 'WHERE'],
-    [/yes|ok|okay|sure/i, 'YES'],
-    [/no|nope|not/i, 'NO'],
-    [/stop|wait/i, 'STOP'],
-    [/jain|university|college/i, 'JAIN UNIVERSITY'],
-    [/aavishkar|hackathon/i, 'AAVISHKAR'],
-    [/desk|counter|registration/i, 'REGISTRATION'],
-    [/food|lunch|eat/i, 'FOOD'],
-    [/name/i, 'NAME'],
-    [/good/i, 'GOOD'],
-  ];
+  // Step 1: Tokenize & Strip punctuation
+  const rawWords = rawLower.replace(/[^\w\s]/g, ' ').split(/\s+/).filter(Boolean);
 
-  vocabMap.forEach(([regex, gloss]) => {
-    if (regex.test(s) && !glosses.includes(gloss)) {
-      glosses.push(gloss);
-    }
-  });
+  // Step 2: Particles / Auxiliaries / Prepositions / Conjunctions to strictly eliminate
+  const stopwords = new Set([
+    'is', 'are', 'am', 'was', 'were', 'be', 'been', 'being',
+    'a', 'an', 'the',
+    'to', 'in', 'at', 'on', 'of', 'for', 'from', 'with', 'by',
+    'and', 'or', 'but', 'so',
+    'do', 'does', 'did', 'done',
+    'would', 'could', 'should', 'can', 'may', 'might', 'must',
+    'please', 'kindly', 'excuse', 'me', 'just', 'there', 'here',
+  ]);
 
-  if (glosses.length === 0) {
-    const words = speech.split(/\s+/).slice(0, 4);
-    words.forEach(w => {
-      const clean = w.replace(/[^a-zA-Z]/g, '').toUpperCase();
-      if (clean.length > 2) glosses.push(clean);
-    });
+  // Step 3: Lemmatize & Map to Dictionary Roots (strip -ing, -ed, -s, -es)
+  function toRootGloss(word: string): string | null {
+    // Exact mapping overrides
+    if (/^i$|^my$|^me$|^myself$/.test(word)) return 'ME';
+    if (/^you$|^your$|^yours$/.test(word)) return 'YOU';
+    if (/^we$|^our$|^us$/.test(word)) return 'WE';
+    if (/^they$|^their$|^them$/.test(word)) return 'THEY';
+
+    if (/^where/.test(word)) return 'WHERE';
+    if (/^what/.test(word)) return 'WHAT';
+    if (/^why/.test(word)) return 'WHY';
+    if (/^how/.test(word)) return 'HOW';
+    if (/^when/.test(word)) return 'WHEN';
+    if (/^who/.test(word)) return 'WHO';
+
+    if (/^restroom|^washroom|^toilet|^bathroom/.test(word)) return 'RESTROOM';
+    if (/^water|^drink/.test(word)) return 'WATER';
+    if (/^help|^assist/.test(word)) return 'HELP';
+    if (/^need|^require/.test(word)) return 'NEED';
+    if (/^want|^wish|^desire/.test(word)) return 'WANT';
+    if (/^find|^locate|^search|^look/.test(word)) return 'FIND';
+    if (/^present|^show|^display/.test(word)) return 'PRESENT';
+    if (/^doctor|^hospital|^physician|^medic/.test(word)) return 'DOCTOR';
+    if (/^desk|^counter|^registration/.test(word)) return 'REGISTRATION';
+    if (/^namaste/.test(word)) return 'NAMASTE';
+    if (/^hello|^hi|^greet/.test(word)) return 'HELLO';
+    if (/^welcome/.test(word)) return 'WELCOME';
+    if (/^thank/.test(word)) return 'THANK YOU';
+    if (/^yes|^yeah|^correct|^agree/.test(word)) return 'YES';
+    if (/^no|^not|^never|^deny/.test(word)) return 'NO';
+    if (/^jain|^university|^college|^fet/.test(word)) return 'JAIN UNIVERSITY';
+    if (/^aavishkar|^hackathon/.test(word)) return 'AAVISHKAR';
+    if (/^project|^work|^code/.test(word)) return 'PROJECT';
+    if (/^food|^lunch|^eat/.test(word)) return 'FOOD';
+    if (/^name/.test(word)) return 'NAME';
+
+    // If it's a stopword, eliminate it
+    if (stopwords.has(word)) return null;
+
+    // Stemming heuristic: remove -ing, -ed, -es, -s
+    let stemmed = word
+      .replace(/ing$/, '')
+      .replace(/ed$/, '')
+      .replace(/es$/, '')
+      .replace(/s$/, '')
+      .toUpperCase();
+
+    return stemmed.length > 1 ? stemmed : null;
   }
 
+  // Step 4: Classify tokens into Subject, Object, Verb, and WH-Questions
+  const subjects: string[] = [];
+  const objects: string[] = [];
+  const verbs: string[] = [];
+  const whQuestions: string[] = [];
+
+  const subjectSet = new Set(['ME', 'YOU', 'WE', 'THEY']);
+  const whSet = new Set(['WHERE', 'WHAT', 'WHY', 'HOW', 'WHEN', 'WHO']);
+  const verbSet = new Set(['WANT', 'NEED', 'FIND', 'PRESENT', 'HELP', 'SEARCH', 'GO', 'COME', 'LEARN', 'TEACH', 'EAT']);
+
+  for (const raw of rawWords) {
+    const gloss = toRootGloss(raw);
+    if (!gloss) continue;
+
+    if (whSet.has(gloss)) {
+      if (!whQuestions.includes(gloss)) whQuestions.push(gloss);
+    } else if (subjectSet.has(gloss)) {
+      if (!subjects.includes(gloss)) subjects.push(gloss);
+    } else if (verbSet.has(gloss)) {
+      if (!verbs.includes(gloss)) verbs.push(gloss);
+    } else {
+      if (!objects.includes(gloss)) objects.push(gloss);
+    }
+  }
+
+  // Step 5: Synthesize strict ISL SOV + WH-End order:
+  // Order = [Subject(s)] + [Object(s)] + [Verb(s)] + [WH-Question(s)]
+  const orderedGlosses = [...subjects, ...objects, ...verbs, ...whQuestions];
+
+  // Fallback if empty
+  const finalGlosses = orderedGlosses.length > 0 ? orderedGlosses : ['HELLO'];
+
   return {
-    glosses: glosses.length ? glosses : ['HELLO'],
+    glosses: finalGlosses,
     expression,
     summary: speech,
-    keyConcepts: glosses.map(g => g.toLowerCase()),
+    keyConcepts: finalGlosses.map(g => g.toLowerCase()),
   };
 }
 

@@ -75,7 +75,7 @@ export const KioskOverlayView: React.FC<KioskOverlayViewProps> = ({
             if (frameBufferRef.current.length > 25) frameBufferRef.current.shift();
 
             const match = corpusManager.recognizeSequence(frameBufferRef.current);
-            if (match && match.confidence >= 0.65) {
+            if (match && match.confidence >= 0.60) {
               setActiveMatch(match);
               setActiveGlosses(prev => {
                 if (prev[prev.length - 1] !== match.label) {
