@@ -36,14 +36,19 @@ export const KioskOverlayView: React.FC<KioskOverlayViewProps> = ({
     async function init() {
       try {
         await handTracker.initialize();
-        stream = await navigator.mediaDevices.getUserMedia({
-          video: { width: { ideal: 1280 }, height: { ideal: 720 } },
-          audio: false,
-        });
 
-        if (videoRef.current) {
-          videoRef.current.srcObject = stream;
-          videoRef.current.play();
+        if (navigator?.mediaDevices?.getUserMedia) {
+          stream = await navigator.mediaDevices.getUserMedia({
+            video: { width: { ideal: 1280 }, height: { ideal: 720 } },
+            audio: false,
+          });
+
+          if (videoRef.current) {
+            videoRef.current.srcObject = stream;
+            videoRef.current.play().catch(playErr => {
+              console.warn('Video play autoplay warning in overlay:', playErr);
+            });
+          }
         }
       } catch (e) {
         console.warn('Webcam in overlay mode error:', e);

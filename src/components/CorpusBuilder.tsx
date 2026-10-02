@@ -51,14 +51,19 @@ export const CorpusBuilder: React.FC = () => {
     async function setupCamera() {
       try {
         await handTracker.initialize();
-        stream = await navigator.mediaDevices.getUserMedia({
-          video: { width: { ideal: 640 }, height: { ideal: 480 } },
-          audio: false,
-        });
 
-        if (videoRef.current) {
-          videoRef.current.srcObject = stream;
-          videoRef.current.play();
+        if (navigator?.mediaDevices?.getUserMedia) {
+          stream = await navigator.mediaDevices.getUserMedia({
+            video: { width: { ideal: 640 }, height: { ideal: 480 } },
+            audio: false,
+          });
+
+          if (videoRef.current) {
+            videoRef.current.srcObject = stream;
+            videoRef.current.play().catch(playErr => {
+              console.warn('Video play autoplay warning in corpus builder:', playErr);
+            });
+          }
         }
       } catch (e) {
         console.warn('Webcam in corpus builder unavailable:', e);

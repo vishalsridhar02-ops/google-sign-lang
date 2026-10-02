@@ -3,6 +3,7 @@ import { Camera, Eye, Zap, Volume2, CheckCircle, RefreshCw, AlertTriangle, Spark
 import { handTracker } from '../services/handTracker';
 import { corpusManager } from '../services/corpusMatcher';
 import { speechService } from '../services/speechService';
+import { translateGlossToSentenceSafe } from '../services/geminiService';
 import { HandFrame, LiveRecognitionMatch, Landmark3D } from '../types/isl';
 
 interface CameraSignPanelProps {
@@ -49,6 +50,13 @@ export const CameraSignPanel: React.FC<CameraSignPanelProps> = ({
       }
 
       try {
+        if (!navigator?.mediaDevices?.getUserMedia) {
+          console.warn('Camera mediaDevices API unavailable (requires HTTPS or supported browser)');
+          setCameraError('Camera API unavailable in this browser context. Running in gesture simulation mode.');
+          setSimulatedMode(true);
+          return;
+        }
+
         stream = await navigator.mediaDevices.getUserMedia({
           video: {
             width: { ideal: 640 },
@@ -62,7 +70,9 @@ export const CameraSignPanel: React.FC<CameraSignPanelProps> = ({
           videoRef.current.srcObject = stream;
           videoRef.current.onloadedmetadata = () => {
             if (!isCancelled) {
-              videoRef.current?.play();
+              videoRef.current?.play().catch(playErr => {
+                console.warn('Video play autoplay warning:', playErr);
+              });
               setCameraReady(true);
               setCameraError(null);
             }
@@ -182,17 +192,7 @@ export const CameraSignPanel: React.FC<CameraSignPanelProps> = ({
     const glossesToTranslate = [...recentGlosses];
 
     try {
-      const res = await fetch('/api/gloss-to-sentence', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          glosses: glossesToTranslate,
-          context: 'Aavishkar FET Hackathon Kiosk',
-        }),
-      });
-
-      const data = await res.json();
-      const sentence = data.sentence || glossesToTranslate.join(' ');
+      const sentence = await translateGlossToSentenceSafe(glossesToTranslate, 'Aavishkar FET Hackathon Kiosk');
 
       setLastSpokenSentence(sentence);
       speechService.playFeedbackTone('success');

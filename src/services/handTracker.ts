@@ -34,27 +34,24 @@ export class HandTrackingEngine {
         'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@latest/wasm'
       );
 
-      this.handLandmarker = await HandLandmarker.createFromOptions(vision, {
-        baseOptions: {
-          modelAssetPath:
-            'https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task',
-          delegate: 'GPU',
-        },
-        runningMode: 'VIDEO',
-        numHands: 2,
-        minHandDetectionConfidence: 0.5,
-        minHandPresenceConfidence: 0.5,
-        minTrackingConfidence: 0.5,
-      });
-
-      this.isInitializing = false;
-      return true;
-    } catch (err: any) {
-      console.warn('MediaPipe GPU initialization failed, attempting CPU fallback:', err);
       try {
-        const vision = await FilesetResolver.forVisionTasks(
-          'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@latest/wasm'
-        );
+        this.handLandmarker = await HandLandmarker.createFromOptions(vision, {
+          baseOptions: {
+            modelAssetPath:
+              'https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task',
+            delegate: 'GPU',
+          },
+          runningMode: 'VIDEO',
+          numHands: 2,
+          minHandDetectionConfidence: 0.5,
+          minHandPresenceConfidence: 0.5,
+          minTrackingConfidence: 0.5,
+        });
+
+        this.isInitializing = false;
+        return true;
+      } catch (gpuErr) {
+        console.warn('MediaPipe GPU initialization failed, attempting CPU fallback:', gpuErr);
         this.handLandmarker = await HandLandmarker.createFromOptions(vision, {
           baseOptions: {
             modelAssetPath:
@@ -66,12 +63,12 @@ export class HandTrackingEngine {
         });
         this.isInitializing = false;
         return true;
-      } catch (cpuErr: any) {
-        this.initError = cpuErr?.message || 'MediaPipe initialization failed';
-        this.isInitializing = false;
-        console.warn('MediaPipe CPU initialization failed:', cpuErr);
-        return false;
       }
+    } catch (err: any) {
+      this.initError = err?.message || 'MediaPipe initialization failed';
+      this.isInitializing = false;
+      console.warn('MediaPipe initialization warning (fallback gesture simulation active):', err);
+      return false;
     }
   }
 

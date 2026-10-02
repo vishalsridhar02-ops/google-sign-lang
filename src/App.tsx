@@ -7,6 +7,7 @@ import { TechflowPoster } from './components/TechflowPoster';
 import { SignDictionary } from './components/SignDictionary';
 import { corpusManager } from './services/corpusMatcher';
 import { ConversationTurn, KioskLayout } from './types/isl';
+import { ErrorBoundary } from './components/ErrorBoundary';
 import { Terminal, Shield, Sparkles } from 'lucide-react';
 
 export default function App() {
@@ -37,17 +38,25 @@ export default function App() {
   ]);
 
   useEffect(() => {
-    fetch('/api/health')
-      .then(res => res.json())
-      .then(data => {
-        setGeminiActive(!!data.geminiActive);
-      })
-      .catch(() => {
-        setGeminiActive(false);
-      });
+    try {
+      fetch('/api/health')
+        .then(res => (res.ok ? res.json() : null))
+        .then(data => {
+          if (data) {
+            setGeminiActive(!!data.geminiActive);
+          } else {
+            setGeminiActive(false);
+          }
+        })
+        .catch(() => {
+          setGeminiActive(false);
+        });
 
-    const signs = corpusManager.getAllSigns();
-    setCorpusCount(signs.length);
+      const signs = corpusManager.getAllSigns();
+      setCorpusCount(signs.length);
+    } catch (e) {
+      console.warn('App startup sync warning:', e);
+    }
   }, [currentTab]);
 
   const handleAddTurn = (turn: ConversationTurn) => {
@@ -55,7 +64,8 @@ export default function App() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans antialiased selection:bg-cyan-500 selection:text-black bg-hud-grid relative">
+    <ErrorBoundary>
+      <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans antialiased selection:bg-cyan-500 selection:text-black bg-hud-grid relative">
       {/* Top Ambient Glow Orb */}
       <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[350px] bg-radial-glow pointer-events-none z-0" />
 
@@ -119,5 +129,6 @@ export default function App() {
         </div>
       </footer>
     </div>
-  );
+  </ErrorBoundary>
+);
 }

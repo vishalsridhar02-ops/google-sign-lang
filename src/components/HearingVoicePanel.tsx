@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Mic, Volume2, Sparkles, Send, RefreshCw, Radio, Check, MessageSquare, Terminal, Activity, Waves } from 'lucide-react';
 import { speechService } from '../services/speechService';
+import { translateSpeechToSignSafe } from '../services/geminiService';
 import { SignAvatar } from './SignAvatar';
 
 interface HearingVoicePanelProps {
@@ -63,15 +64,10 @@ export const HearingVoicePanel: React.FC<HearingVoicePanelProps> = ({
 
     setIsProcessing(true);
     try {
-      const res = await fetch('/api/speech-to-sign', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ speechText: spokenSentence }),
-      });
+      const result = await translateSpeechToSignSafe(spokenSentence);
 
-      const data = await res.json();
-      const glosses: string[] = data.glosses || ['HELLO'];
-      const expression: string = data.expression || 'NEUTRAL';
+      const glosses: string[] = result.glosses || ['HELLO'];
+      const expression: string = result.expression || 'NEUTRAL';
 
       setActiveGlosses(glosses);
       setActiveExpression(expression);

@@ -1,44 +1,67 @@
-// Web Speech API wrapper for STT (Speech-to-Text) and TTS (Text-to-Speech)
+// Safe Web Speech API and AudioContext wrapper for STT (Speech-to-Text) and TTS (Text-to-Speech)
 
 export class SpeechService {
   private recognition: any = null;
   private isListening: boolean = false;
   private audioCtx: AudioContext | null = null;
+  private audioBlocked: boolean = false;
 
   constructor() {
-    // Check for browser speech recognition
-    const SpeechRecognition =
-      (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    try {
+      if (typeof window !== 'undefined') {
+        const SpeechRecognition =
+          (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
 
-    if (SpeechRecognition) {
-      try {
-        this.recognition = new SpeechRecognition();
-        this.recognition.continuous = false;
-        this.recognition.interimResults = true;
-        this.recognition.lang = 'en-IN'; // Indian English
-      } catch (e) {
-        console.warn('SpeechRecognition initialization error:', e);
+        if (SpeechRecognition) {
+          try {
+            this.recognition = new SpeechRecognition();
+            this.recognition.continuous = false;
+            this.recognition.interimResults = true;
+            this.recognition.lang = 'en-IN'; // Indian English default
+          } catch (initErr) {
+            console.warn('SpeechRecognition instance creation failed:', initErr);
+            this.recognition = null;
+          }
+        }
       }
+    } catch (e) {
+      console.warn('SpeechService initialization check skipped:', e);
     }
   }
 
   public isSpeechSupported(): boolean {
-    return 'speechSynthesis' in window;
+    try {
+      return typeof window !== 'undefined' && 'speechSynthesis' in window && !!window.speechSynthesis;
+    } catch {
+      return false;
+    }
   }
 
   public isRecognitionSupported(): boolean {
     return !!this.recognition;
   }
 
-  // Play auditory tone feedback for kiosk interactions
+  // Play auditory tone feedback for kiosk interactions with fallback protection
   public playFeedbackTone(type: 'start' | 'stop' | 'success' | 'sign_detected') {
+    if (this.audioBlocked) return;
+
     try {
+      if (typeof window === 'undefined') return;
+
+      const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
+      if (!AudioContextClass) return;
+
       if (!this.audioCtx) {
-        this.audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
+        this.audioCtx = new AudioContextClass();
       }
+
       if (this.audioCtx.state === 'suspended') {
-        this.audioCtx.resume();
+        this.audioCtx.resume().catch(() => {
+          // Handled silently if autoplay restricted
+        });
       }
+
+      if (this.audioCtx.state === 'closed') return;
 
       const osc = this.audioCtx.createOscillator();
       const gain = this.audioCtx.createGain();
@@ -79,7 +102,8 @@ export class SpeechService {
         osc.stop(now + 0.25);
       }
     } catch (e) {
-      // AudioContext might be blocked until user gesture
+      // AudioContext may be restricted by browser policy before first click
+      this.audioBlocked = false;
     }
   }
 
@@ -98,49 +122,58 @@ export class SpeechService {
       window.speechSynthesis.cancel(); // Stop any pending speech
 
       const utterance = new SpeechSynthesisUtterance(text);
-      utterance.rate = 0.95; // Slightly measured for kiosk clarity
+      utterance.rate = 0.95;
       utterance.pitch = 1.05;
 
-      const voices = window.speechSynthesis.getVoices();
-      // Try finding English India or English UK/US voice
-      const indianVoice = voices.find(v => v.lang.includes('en-IN'));
-      const naturalVoice = voices.find(v => v.lang.includes('en') && (v.name.includes('Google') || v.name.includes('Natural')));
-      if (indianVoice) {
-        utterance.voice = indianVoice;
-      } else if (naturalVoice) {
-        utterance.voice = naturalVoice;
+      try {
+        const voices = window.speechSynthesis.getVoices();
+        if (voices && voices.length > 0) {
+          const indianVoice = voices.find(v => v.lang && v.lang.includes('en-IN'));
+          const naturalVoice = voices.find(v => v.lang && v.lang.includes('en') && (v.name.includes('Google') || v.name.includes('Natural')));
+          if (indianVoice) {
+            utterance.voice = indianVoice;
+          } else if (naturalVoice) {
+            utterance.voice = naturalVoice;
+          }
+        }
+      } catch (voiceErr) {
+        // Fallback to default voice
       }
 
       utterance.onend = () => {
         if (onEnd) onEnd();
       };
       utterance.onerror = (e) => {
-        console.warn('TTS playback error:', e);
+        console.warn('TTS playback error (non-fatal):', e);
         if (onError) onError(e);
       };
 
       window.speechSynthesis.speak(utterance);
       return utterance;
     } catch (e) {
-      console.warn('Speech synthesis failed:', e);
+      console.warn('Speech synthesis call failed:', e);
       if (onEnd) onEnd();
       return null;
     }
   }
 
   public stopSpeaking(): void {
-    if (this.isSpeechSupported()) {
-      window.speechSynthesis.cancel();
+    try {
+      if (this.isSpeechSupported()) {
+        window.speechSynthesis.cancel();
+      }
+    } catch {
+      // Ignore
     }
   }
 
-  // Listen to microphone
+  // Listen to microphone safely
   public startListening(
     onResult: (text: string, isFinal: boolean) => void,
     onError?: (err: any) => void
   ): boolean {
     if (!this.recognition) {
-      if (onError) onError(new Error('Speech recognition not supported in this browser. Please use Google Chrome.'));
+      if (onError) onError(new Error('Speech recognition not supported in this browser. Fallback text input is available.'));
       return false;
     }
 
@@ -151,23 +184,27 @@ export class SpeechService {
       this.isListening = true;
 
       this.recognition.onresult = (event: any) => {
-        let interim = '';
-        let final = '';
+        try {
+          let interim = '';
+          let final = '';
 
-        for (let i = event.resultIndex; i < event.results.length; ++i) {
-          if (event.results[i].isFinal) {
-            final += event.results[i][0].transcript;
-          } else {
-            interim += event.results[i][0].transcript;
+          for (let i = event.resultIndex; i < event.results.length; ++i) {
+            if (event.results[i].isFinal) {
+              final += event.results[i][0].transcript;
+            } else {
+              interim += event.results[i][0].transcript;
+            }
           }
-        }
 
-        const text = final || interim;
-        onResult(text, !!final);
+          const text = final || interim;
+          onResult(text, !!final);
+        } catch (resErr) {
+          console.warn('Speech recognition result parsing error:', resErr);
+        }
       };
 
       this.recognition.onerror = (event: any) => {
-        console.warn('Speech recognition error:', event.error);
+        console.warn('Speech recognition event error:', event?.error);
         this.isListening = false;
         if (onError) onError(event);
       };
@@ -187,14 +224,18 @@ export class SpeechService {
   }
 
   public stopListening(): void {
-    if (this.recognition && this.isListening) {
-      try {
-        this.recognition.stop();
-      } catch (e) {
-        // already stopped
+    try {
+      if (this.recognition && this.isListening) {
+        try {
+          this.recognition.stop();
+        } catch {
+          // already stopped
+        }
+        this.isListening = false;
+        this.playFeedbackTone('stop');
       }
+    } catch (e) {
       this.isListening = false;
-      this.playFeedbackTone('stop');
     }
   }
 }
